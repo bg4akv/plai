@@ -32,3 +32,20 @@
          [else (error 'parse2 "invalid list")]))]
     [else (error 'parse2 "invalid input")]))
 
+
+(define (interp (exp : Exp)) : number
+  (cond
+    [(numExp? exp) (numExp-n exp)]
+    [(plusExp? exp) (+ (interp (plusExp-left exp)) (interp (plusExp-right exp)))]
+    [(mulExp? exp) (* (interp (mulExp-left exp)) (interp (mulExp-right exp)))]
+    [else (error 'interp "error")]))
+
+
+(define (interp2 (exp : Exp)) : number
+  (type-case Exp exp
+    [numExp (n) n]
+    [plusExp (l r) (+ (interp2 l) (interp2 r))]
+    [mulExp (l r) (* (interp2 l) (interp2 r))]))
+
+
+
