@@ -16,3 +16,19 @@
          [(*) (mulExp (parse (second sl)) (parse (third sl)))]
          [else (error 'parse "invalid list input")]))]
     [else (error 'parse "invalid input")]))
+
+
+(define (parse2 [s : s-expression]) : Exp
+  (cond
+    [(s-exp-number? s) (numExp (s-exp->number s))]
+    [(s-exp-list? s)
+     (let ([sl (s-exp->list s)])
+       (cond
+         [(s-exp-symbol? (first sl))
+          (case (s-exp->symbol (first sl))
+            [(+) (plusExp (parse2 (second sl)) (parse2 (third sl)))]
+            [(*) (mulExp (parse2 (second sl)) (parse2 (third sl)))]
+            [else (error 'parse2 "invalid list input")])]
+         [else (error 'parse2 "invalid list")]))]
+    [else (error 'parse2 "invalid input")]))
+
