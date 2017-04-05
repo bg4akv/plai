@@ -4,7 +4,8 @@
 (define-type Exp
   (numExp (n : number))
   (plusExp (left : Exp) (right : Exp))
-  (mulExp (left : Exp) (right : Exp)))
+  (mulExp (left : Exp) (right : Exp))
+  (subExp (left : Exp) (right : Exp)))
 
 (define (parse [s : s-expression]) : Exp
   (cond
@@ -45,7 +46,13 @@
   (type-case Exp exp
     [numExp (n) n]
     [plusExp (l r) (+ (interp2 l) (interp2 r))]
-    [mulExp (l r) (* (interp2 l) (interp2 r))]))
+    [mulExp (l r) (* (interp2 l) (interp2 r))]
+    [else ((error 'interp "error"))]))
 
 
-
+(define (desugar (exp : Exp)) : Exp
+  (type-case Exp exp
+    [numExp (n) (numExp n)]
+    [plusExp (l r) (plusExp (desugar l) (desugar r))]
+    [mulExp (l r) (mulExp (desugar l) (desugar r))]
+    [subExp (l r) (plusExp (desugar l) (mulExp (numExp -1) (desugar r)))]))
