@@ -12,9 +12,16 @@
 (define-type FuncDef
   [funcDef (name : symbol) (arg : symbol) (body : Exp)])
 
+(define funcDefList
+  (cons (funcDef 'const5 '_ (numExp 5))
+        (cons (funcDef 'quad 'x (funcAppExp 'double (funcAppExp 'double (idExp 'x))))
+              (cons (funcDef 'double 'x (plusExp (idExp 'x) (idExp 'x))) empty))))
+
 (funcDef 'double 'x (plusExp (idExp 'x) (idExp 'x)))
 (funcDef 'quad 'x (funcAppExp 'double (funcAppExp 'double (idExp 'x))))
 (funcDef 'const5 '_ (numExp 5))
+
+
 
 (define (get-func [name : symbol] [funcDefList : (listof FuncDef)]) : FuncDef
   (cond
@@ -59,7 +66,7 @@
     [mulExp (l r) (* (interp l funcDefList) (interp r funcDefList))]
     [funcAppExp (name arg)
                 (interp (local ([define func (get-func name funcDefList)])
-                  (subst arg (funcDef-name func) (funcDef-body func))) funcDefList)]
+                  (subst arg (funcDef-arg func) (funcDef-body func))) funcDefList)]
     [else (error 'interp "error")]))
 
 
