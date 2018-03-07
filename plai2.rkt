@@ -1,0 +1,120 @@
+#lang plai-typed
+
+(define-type Exp
+  [numExp (n : number)]
+  [plusExp (l : Exp) (r : Exp)]
+  [mulExp (l : Exp) (r : Exp)]
+  [minExp (l : Exp) (r : Exp)]
+  [negExp (exp : Exp)]
+  [idExp (s : symbol)]
+  [appFunc (func : Exp) (arg : Exp)]
+  [appFunc2 (func : Exp) (arg : Exp)]
+  [funcExp (name : symbol) (arg : symbol) (body : Exp)]
+  [lamExp (arg : symbol) (body : Exp)])
+
+
+(define-type Val
+  [numVal (n : number)]
+  [funcVal (name : symbol) (arg : symbol) (body : Exp)]
+  [closVal (arg : symbol) (body : Exp) (env : Env)])
+
+(define (parse [s : s-expression]) : Exp
+  (cond
+    [(s-exp-number? s) (numExp (s-exp->number s))]
+    [(s-exp-symbol? s) (idExp (s-exp->symbol s))]
+    [(s-exp-list? s)
+      (let ([sl (s-exp->list s)])
+        (case (s-exp->symbol (list-ref sl 0))
+          [(+) (plusExp (parse (list-ref sl 1)) (parse (list-ref sl 2)))]
+          [(*) (mulExp (parse (list-ref sl 1)) (parse (list-ref sl 2)))]
+          [(-) (case (length sl)
+                 [(2) (negExp (parse (list-ref sl 1)))]
+                 [(3) (minExp (parse (list-ref sl 1)) (parse (list-ref sl 2)))]
+                 [else (error 'parse "error")])]
+          [else (error 'parse "error")]))]
+    [else (error 'parse "error")]))
+
+(define (num+ [l : Val] [r : Val]) : Val
+  (cond
+    [(and (numVal? l) (numVal? r)) (numVal (+ (numVal-n l) (numVal-n r)))]
+    [else (error 'num+ "error")]))
+
+(define (num* [l : Val] [r : Val]) : Val
+  (cond
+    [(and (numVal? l) (numVal? r)) (numVal (* (numVal-n l) (numVal-n r)))]
+    [else (error 'num+ "error")]))
+
+    
+(define (interp [e : Exp] [env : Env]) : Val
+  (type-case Exp e
+    [numExp (n) (numVal n)]
+    [plusExp (l r) (num+ (interp l env) (interp r env))]
+    [mulExp (l r) (num* (interp l env) (interp r env))]
+    [minExp (l r) (interp (desugar e) env)]
+    [negExp (exp) (interp (desugar e) env)]
+    [idExp (s) (lookup env s)]
+    [funcExp (name arg body) (funcVal name arg body)]
+    [lamExp (arg body) (closVal arg body env)]
+    [appFunc (func arg)
+             (interp (funcExp-body func)
+                     (cons (bind (funcExp-arg func) (interp arg env)) empty))]
+    [appFunc2 (func arg)
+              (let ([f-val (interp func env)])
+                (interp (closVal-body f-val)
+                        (cons (bind (closVal-arg f-val) (interp arg env)) (closVal-env f-val))))]))
+
+(define (desugar [e : Exp]) : Exp
+  (type-case Exp e
+    [numExp (n) e]
+    [plusExp (l r) (plusExp (desugar l) (desugar r))]
+    [mulExp (l r) (mulExp (desugar l) (desugar r))]
+    [minExp (l r) (plusExp (desugar l) (mulExp (numExp -1) (desugar r)))]
+    [negExp (exp) (desugar (minExp (numExp 0) exp))]
+    [idExp (s) e]
+    [appFunc (func arg) (appFunc (desugar func) (desugar arg))]
+    [else (error 'desugar "error")]))
+
+(define-type FuncDef
+  [funcDef (name : symbol) (arg : symbol) (body : Exp)])
+
+(define (subst [in : Exp] [for : symbol] [what : Exp]) : Exp
+  (type-case Exp in
+    [numExp (n) in]
+    [plusExp (l r) (plusExp (subst l for what) (subst r for what))]
+    [mulExp (l r) (mulExp (subst l for what) (subst r for what))]
+    [minExp (l r) (minExp (subst l for what) (subst r for what))]
+    [negExp (exp) (negExp (subst exp for what))]
+    [idExp (s)
+           (cond
+             [(equal? s for) what]
+             [else in])]
+    [appFunc (name arg) (appFunc name (subst arg for what))]
+    [else (error 'subst "error")]))
+
+(define (getFuncDef [name : symbol] [funcs : (listof FuncDef)]) : FuncDef
+  (cond
+    [(empty? funcs) (error 'getFuncDef "function not found")]
+    [else
+     (cond 
+        [(equal? (funcDef-name (first funcs)) name) (first funcs)]
+        [else (getFuncDef name (rest funcs))])]))
+
+
+
+(define-type Binding
+  [bind (name : symbol) (val : Val)])
+(define-type-alias Env (listof Binding))
+
+(define environment
+  (list
+   (bind 'x (numVal 1))
+   (bind 'y (numVal 2))
+   (bind 'z (numVal 3))))
+
+
+(define (lookup [env : Env] [name : symbol]) : Val
+  (cond
+    [(empty? env) (error 'lookup "not found")]
+    [(equal? name (bind-name (first env))) (bind-val (first env))]
+    [else (lookup (rest env) name)]))
+
